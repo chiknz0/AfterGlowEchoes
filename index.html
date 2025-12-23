@@ -8,9 +8,13 @@ import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * AFTERGLOW ECHOES - Java Edition
- * A standalone desktop version featuring procedural salvage, legendary rolls,
- * and high-fidelity animations.
+ * AFTERGLOW ECHOES - Desktop Edition
+ * * Instructions to run:
+ * 1. Install Java (JDK) on your computer.
+ * 2. Save this file as "AfterglowEchoes.java".
+ * 3. Open your terminal/command prompt.
+ * 4. Type: javac AfterglowEchoes.java
+ * 5. Type: java AfterglowEchoes
  */
 public class AfterglowEchoes extends JFrame {
     private static final int WIDTH = 1000;
@@ -22,6 +26,11 @@ public class AfterglowEchoes extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
+        
+        // Hide the standard cursor to show our custom glowing cursor
+        setCursor(getToolkit().createCustomCursor(
+            new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB),
+            new Point(0, 0), "blank cursor"));
         
         GamePanel panel = new GamePanel();
         add(panel);
@@ -63,7 +72,7 @@ class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMo
         addMouseListener(this);
         addMouseMotionListener(this);
         
-        timer = new Timer(16, this); // ~60 FPS
+        timer = new Timer(16, this); // ~60 FPS animation loop
         timer.start();
         lastTick = System.currentTimeMillis();
     }
@@ -74,13 +83,12 @@ class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMo
         isPulling = true;
         onCooldown = true;
 
-        // Logic for pull animation and result
         new Thread(() -> {
             try {
-                // Animation down
-                for (int i = 0; i <= 100; i += 10) {
+                // Reach down animation
+                for (int i = 0; i <= 100; i += 8) {
                     pullOffset = i;
-                    Thread.sleep(20);
+                    Thread.sleep(15);
                 }
                 
                 // Roll for item
@@ -90,30 +98,32 @@ class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMo
                              OBJECTS[rand.nextInt(OBJECTS.length)];
                 String emoji = EMOJIS[rand.nextInt(EMOJIS.length)];
                 int value = rand.nextInt(2000) + 400;
-                boolean isLegendary = roll > 0.98;
+                boolean isLegendary = roll > 0.985;
 
                 if (isLegendary) {
-                    value = 50000;
-                    currentLegendary = new PulledItem(name, emoji, value, true);
+                    value = 45000;
+                    currentLegendary = new PulledItem(name, emoji, value);
                     gameState = State.LEGENDARY;
                     Thread.sleep(3000);
                     score += value;
                     gameState = State.PLAYING;
                 } else {
                     score += value;
-                    activeItems.add(new PulledItem(name, emoji, value, false));
+                    activeItems.add(new PulledItem(name, emoji, value));
                 }
 
-                // Animation up
-                for (int i = 100; i >= 0; i -= 10) {
+                // Pull back up animation
+                for (int i = 100; i >= 0; i -= 8) {
                     pullOffset = i;
-                    Thread.sleep(20);
+                    Thread.sleep(15);
                 }
                 
                 isPulling = false;
-                Thread.sleep(400); // Cooldown
+                Thread.sleep(400); // Gameplay balance delay
                 onCooldown = false;
-            } catch (InterruptedException e) {}
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }).start();
     }
 
@@ -136,112 +146,116 @@ class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMo
     }
 
     private void drawBackground(Graphics2D g2) {
-        // Nebula Gradient
+        // Deep Space Gradient
         RadialGradientPaint p = new RadialGradientPaint(
             new Point2D.Double(getWidth() * 0.3, getHeight() * 0.4),
             (float) getWidth(),
-            new float[]{0f, 0.5f},
-            new Color[]{new Color(30, 27, 75, 100), new Color(2, 2, 5, 255)}
+            new float[]{0f, 0.7f},
+            new Color[]{new Color(30, 27, 75, 120), new Color(2, 2, 5, 255)}
         );
         g2.setPaint(p);
         g2.fillRect(0, 0, getWidth(), getHeight());
 
-        // Stars
-        g2.setColor(new Color(255, 255, 255, 50));
-        Random starRand = new Random(42); // Fixed seed for stars
-        for (int i = 0; i < 100; i++) {
+        // Background Stars
+        g2.setColor(new Color(255, 255, 255, 60));
+        Random starRand = new Random(42);
+        for (int i = 0; i < 120; i++) {
             int x = starRand.nextInt(getWidth());
             int y = starRand.nextInt(getHeight());
-            int size = starRand.nextInt(3);
+            int size = starRand.nextInt(3) + 1;
             g2.fillOval(x, y, size, size);
         }
     }
 
     private void drawStartScreen(Graphics2D g2) {
-        g2.setFont(new Font("Inter", Font.BOLD, 100));
+        g2.setFont(new Font("Arial", Font.BOLD, 100));
         g2.setColor(Color.WHITE);
         drawCenteredString(g2, "AFTERGLOW", getWidth() / 2, getHeight() / 2 - 50);
         g2.setColor(new Color(21, 94, 117));
         drawCenteredString(g2, "ECHOES", getWidth() / 2, getHeight() / 2 + 50);
         
-        g2.setFont(new Font("Inter", Font.PLAIN, 20));
+        g2.setFont(new Font("Arial", Font.PLAIN, 18));
         g2.setColor(Color.GRAY);
-        drawCenteredString(g2, "CLICK ANYWHERE TO START SALVAGE", getWidth() / 2, getHeight() / 2 + 150);
+        drawCenteredString(g2, "CLICK TO BEGIN THE ARCHIVE SALVAGE", getWidth() / 2, getHeight() / 2 + 150);
     }
 
     private void drawGame(Graphics2D g2) {
-        // HUD
-        g2.setColor(new Color(0, 0, 0, 150));
-        g2.fillRoundRect(50, 50, 300, 100, 30, 30);
-        g2.fillRoundRect(getWidth() - 350, 50, 300, 100, 30, 30);
+        // Stats Boxes
+        g2.setColor(new Color(0, 0, 0, 180));
+        g2.fillRoundRect(50, 40, 320, 90, 25, 25);
+        g2.fillRoundRect(getWidth() - 370, 40, 320, 90, 25, 25);
         
-        g2.setFont(new Font("Monospaced", Font.BOLD, 40));
-        g2.setColor(Color.CYAN);
-        g2.drawString("$" + String.format("%, d", score), 70, 115);
-        g2.setColor(timeLeft < 10 ? Color.RED : Color.WHITE);
-        g2.drawString(timeLeft + "s", getWidth() - 150, 115);
+        g2.setFont(new Font("Monospaced", Font.BOLD, 45));
+        g2.setColor(new Color(34, 211, 238));
+        g2.drawString("$" + String.format("%,d", score), 75, 100);
+        
+        g2.setColor(timeLeft < 10 ? Color.PINK : Color.WHITE);
+        String timeStr = timeLeft + "s";
+        g2.drawString(timeStr, getWidth() - 75 - g2.getFontMetrics().stringWidth(timeStr), 100);
 
-        // Falling Items
-        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 80));
+        // Falling Items (Ascending)
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 90));
         for (PulledItem item : activeItems) {
-            g2.drawString(item.emoji, getWidth() / 2 - 40, item.y);
+            g2.drawString(item.emoji, getWidth() / 2 - 45, item.y);
             item.update();
             if (item.y < -100) activeItems.remove(item);
         }
 
-        // Chute
+        // Salvage Chute (The Hole)
         g2.setColor(new Color(15, 23, 42));
-        g2.fillOval(getWidth() / 2 - 150, getHeight() - 250, 300, 100);
+        g2.fillOval(getWidth() / 2 - 160, getHeight() - 280, 320, 110);
+        g2.setStroke(new BasicStroke(4));
         g2.setColor(new Color(30, 41, 59));
-        g2.drawOval(getWidth() / 2 - 150, getHeight() - 250, 300, 100);
+        g2.drawOval(getWidth() / 2 - 160, getHeight() - 280, 320, 110);
 
-        // Hand
-        int handY = getHeight() - 250 - 400 + pullOffset * 4;
+        // Mechanical Salvage Arm
+        int armY = getHeight() - 280 - 450 + (pullOffset * 4);
         g2.setColor(new Color(71, 85, 105));
-        g2.fillRoundRect(getWidth() / 2 - 40, handY, 80, 400, 40, 40);
+        g2.fillRoundRect(getWidth() / 2 - 45, armY, 90, 450, 45, 45);
         
-        // Reach Button
-        g2.setColor(onCooldown ? Color.DARK_GRAY : Color.WHITE);
-        g2.fillRoundRect(getWidth() / 2 - 100, getHeight() - 120, 200, 60, 30, 30);
-        g2.setColor(Color.BLACK);
-        g2.setFont(new Font("Inter", Font.BOLD, 20));
-        drawCenteredString(g2, onCooldown ? "WAIT" : "REACH", getWidth() / 2, getHeight() - 85);
+        // Interaction Button
+        g2.setColor(onCooldown ? new Color(30, 41, 59) : Color.WHITE);
+        g2.fillRoundRect(getWidth() / 2 - 120, getHeight() - 130, 240, 70, 35, 35);
+        g2.setColor(onCooldown ? Color.GRAY : Color.BLACK);
+        g2.setFont(new Font("Arial", Font.BOLD, 24));
+        drawCenteredString(g2, onCooldown ? "SYNCING..." : "REACH", getWidth() / 2, getHeight() - 87);
     }
 
     private void drawLegendaryScreen(Graphics2D g2) {
-        g2.setColor(new Color(0, 0, 0, 200));
+        g2.setColor(new Color(2, 2, 5, 230));
         g2.fillRect(0, 0, getWidth(), getHeight());
         
-        g2.setFont(new Font("Inter", Font.BOLD, 20));
-        g2.setColor(Color.CYAN);
-        drawCenteredString(g2, "LEGENDARY ARTIFACT DETECTED", getWidth() / 2, getHeight() / 2 - 200);
+        g2.setFont(new Font("Arial", Font.BOLD, 22));
+        g2.setColor(new Color(34, 211, 238));
+        drawCenteredString(g2, "--- LEGENDARY ARTIFACT DETECTED ---", getWidth() / 2, getHeight() / 2 - 220);
         
-        g2.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 200));
-        drawCenteredString(g2, currentLegendary.emoji, getWidth() / 2, getHeight() / 2);
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 220));
+        drawCenteredString(g2, currentLegendary.emoji, getWidth() / 2, getHeight() / 2 + 50);
         
-        g2.setFont(new Font("Inter", Font.BOLD, 40));
+        g2.setFont(new Font("Arial", Font.BOLD, 45));
         g2.setColor(Color.WHITE);
-        drawCenteredString(g2, currentLegendary.name, getWidth() / 2, getHeight() / 2 + 150);
+        drawCenteredString(g2, currentLegendary.name.toUpperCase(), getWidth() / 2, getHeight() / 2 + 180);
     }
 
     private void drawEndScreen(Graphics2D g2) {
-        g2.setFont(new Font("Inter", Font.BOLD, 60));
+        g2.setFont(new Font("Arial", Font.BOLD, 65));
         g2.setColor(Color.WHITE);
-        drawCenteredString(g2, "SALVAGE COMPLETE", getWidth() / 2, getHeight() / 2 - 100);
-        g2.setFont(new Font("Monospaced", Font.BOLD, 80));
-        g2.setColor(Color.CYAN);
-        drawCenteredString(g2, "$" + String.format("%, d", score), getWidth() / 2, getHeight() / 2 + 20);
+        drawCenteredString(g2, "SHIFT CONCLUDED", getWidth() / 2, getHeight() / 2 - 80);
         
-        g2.setFont(new Font("Inter", Font.PLAIN, 20));
-        g2.setColor(Color.GRAY);
-        drawCenteredString(g2, "CLICK TO RESTART", getWidth() / 2, getHeight() / 2 + 150);
+        g2.setFont(new Font("Monospaced", Font.BOLD, 90));
+        g2.setColor(new Color(34, 211, 238));
+        drawCenteredString(g2, "TOTAL: $" + String.format("%,d", score), getWidth() / 2, getHeight() / 2 + 30);
+        
+        g2.setFont(new Font("Arial", Font.PLAIN, 22));
+        g2.setColor(Color.DARK_GRAY);
+        drawCenteredString(g2, "CLICK TO RE-INITIALIZE ARCHIVE", getWidth() / 2, getHeight() / 2 + 160);
     }
 
     private void drawCursor(Graphics2D g2) {
-        g2.setColor(new Color(34, 211, 238, 100));
-        g2.fillOval(mousePos.x - 15, mousePos.y - 15, 30, 30);
+        g2.setColor(new Color(34, 211, 238, 80));
+        g2.fillOval(mousePos.x - 18, mousePos.y - 18, 36, 36);
         g2.setColor(new Color(34, 211, 238));
-        g2.fillOval(mousePos.x - 3, mousePos.y - 3, 6, 6);
+        g2.fillOval(mousePos.x - 4, mousePos.y - 4, 8, 8);
     }
 
     private void drawCenteredString(Graphics g, String text, int x, int y) {
@@ -256,11 +270,11 @@ class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMo
         if (gameState == State.PLAYING && now - lastTick >= 1000) {
             timeLeft--;
             lastTick = now;
+            if (timeLeft <= 0) gameState = State.FINISHED;
         }
         repaint();
     }
 
-    // Input Listeners
     public void mousePressed(MouseEvent e) {
         if (gameState == State.START) {
             gameState = State.PLAYING;
@@ -275,25 +289,29 @@ class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMo
 
     public void mouseMoved(MouseEvent e) { mousePos = e.getPoint(); }
     public void mouseDragged(MouseEvent e) { mousePos = e.getPoint(); }
+    
+    // Unused mouse events
     public void mouseClicked(MouseEvent e) {}
     public void mouseReleased(MouseEvent e) {}
     public void mouseEntered(MouseEvent e) {}
     public void mouseExited(MouseEvent e) {}
 
-    // Inner class for item particles
     class PulledItem {
         String name, emoji;
         int value;
-        int y = getHeight() - 250;
-        double vy = -5;
+        int y;
+        double vy = -6.5;
 
-        PulledItem(String name, String emoji, int value, boolean leg) {
-            this.name = name; this.emoji = emoji; this.value = value;
+        PulledItem(String name, String emoji, int value) {
+            this.name = name; 
+            this.emoji = emoji; 
+            this.value = value;
+            this.y = getHeight() - 280;
         }
 
         void update() { 
             y += (int) vy;
-            vy -= 0.2; // Gravity upward
+            vy -= 0.18; // Reverse gravity for floating effect
         }
     }
 }

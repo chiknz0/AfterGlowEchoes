@@ -1,317 +1,113 @@
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.geom.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.CopyOnWriteArrayList;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afterglow Echoes | Digital Salvage</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background: #020205; color: #e2e8f0; font-family: sans-serif; overflow: hidden; cursor: crosshair; }
+        canvas { display: block; }
+        #ui { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn { pointer-events: auto; cursor: pointer; transition: all 0.2s; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui">
+        <!-- Start Screen -->
+        <div id="start" class="text-center">
+            <h1 class="text-9xl font-black text-white mb-2">AFTERGLOW</h1>
+            <h1 class="text-9xl font-black text-cyan-900 mb-10">ECHOES</h1>
+            <button onclick="startGame()" class="btn px-10 py-5 bg-white text-black font-bold rounded-full text-xl">BEGIN SALVAGE</button>
+        </div>
+        <!-- HUD -->
+        <div id="hud" class="hidden w-full h-full flex flex-col justify-between p-10">
+            <div class="flex justify-between w-full">
+                <div class="bg-black/60 p-5 rounded-2xl border border-white/10">
+                    <div class="text-xs text-slate-500 font-bold uppercase">Salvage Value</div>
+                    <div id="score" class="text-4xl font-black text-cyan-400">$0</div>
+                </div>
+                <div id="timer-box" class="bg-black/60 p-5 rounded-2xl border border-white/10 text-right">
+                    <div class="text-xs text-pink-500 font-bold uppercase">Time Left</div>
+                    <div id="timer" class="text-4xl font-black text-white">60s</div>
+                </div>
+            </div>
+            <button id="reach" onmousedown="pull()" class="btn mx-auto mb-10 px-20 py-8 bg-white text-black font-black text-3xl rounded-full">REACH</button>
+        </div>
+        <!-- Legendary Overlay -->
+        <div id="legendary" class="hidden fixed inset-0 bg-black/90 flex flex-col items-center justify-center text-center">
+            <div class="text-cyan-400 tracking-widest text-sm mb-5 font-bold">LEGENDARY ARTIFACT FOUND</div>
+            <div id="leg-emoji" class="text-[12rem] mb-4">💎</div>
+            <div id="leg-name" class="text-4xl font-black text-white uppercase">ANCIENT CORE</div>
+        </div>
+    </div>
 
-/**
- * AFTERGLOW ECHOES - Desktop Edition
- * * Instructions to run:
- * 1. Install Java (JDK) on your computer.
- * 2. Save this file as "AfterglowEchoes.java".
- * 3. Open your terminal/command prompt.
- * 4. Type: javac AfterglowEchoes.java
- * 5. Type: java AfterglowEchoes
- */
-public class AfterglowEchoes extends JFrame {
-    private static final int WIDTH = 1000;
-    private static final int HEIGHT = 800;
-    
-    public AfterglowEchoes() {
-        setTitle("Afterglow Echoes | Digital Salvage");
-        setSize(WIDTH, HEIGHT);
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setLocationRelativeTo(null);
-        setResizable(false);
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let state = 'START', score = 0, time = 60, pullOff = 0, pulling = false, cooldown = false, last = 0;
+        const items = [], stars = [];
+        const PRE = ["Ancient", "Holographic", "Neon", "Stellar", "Ghostly", "Hyper", "Cyber"];
+        const MAT = ["Quartz", "Iron", "Plasma", "Carbon", "Silicon", "Onyx"];
+        const OBJ = ["Relic", "Shard", "Core", "Module", "Tome", "Fragment"];
+        const EMO = ["🗿", "🏺", "💾", "💎", "✨", "🔮", "📟", "📜", "🧩", "☄️"];
+
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+        for(let i=0; i<100; i++) stars.push({x: Math.random()*canvas.width, y: Math.random()*canvas.height, s: Math.random()*2});
+
+        function startGame() { state = 'PLAYING'; document.getElementById('start').style.display='none'; document.getElementById('hud').style.display='flex'; }
         
-        // Hide the standard cursor to show our custom glowing cursor
-        setCursor(getToolkit().createCustomCursor(
-            new java.awt.image.BufferedImage(1, 1, java.awt.image.BufferedImage.TYPE_INT_ARGB),
-            new Point(0, 0), "blank cursor"));
-        
-        GamePanel panel = new GamePanel();
-        add(panel);
-    }
+        function pull() {
+            if (state !== 'PLAYING' || cooldown || pulling) return;
+            pulling = true; cooldown = true;
+            let step = 0;
+            const btn = document.getElementById('reach');
+            btn.innerText = "SYNCING..."; btn.style.background = "#1e293b";
+            
+            const anim = setInterval(() => {
+                step += 4;
+                if (step <= 100) pullOff = step;
+                else if (step === 104) {
+                    if (Math.random() > 0.985) {
+                        state = 'LEGENDARY';
+                        const name = PRE[Math.floor(Math.random()*PRE.length)] + " " + OBJ[Math.floor(Math.random()*OBJ.length)];
+                        const emoji = EMO[Math.floor(Math.random()*EMO.length)];
+                        document.getElementById('leg-emoji').innerText = emoji;
+                        document.getElementById('leg-name').innerText = name;
+                        document.getElementById('legendary').style.display = 'flex';
+                        setTimeout(() => { score += 45000; state = 'PLAYING'; document.getElementById('legendary').style.display = 'none'; updateScore(); }, 3000);
+                    } else {
+                        score += Math.floor(Math.random()*2000)+400;
+                        items.push({e: EMO[Math.floor(Math.random()*EMO.length)], x: canvas.width/2-40, y: canvas.height-280, vy: -6.5});
+                        updateScore();
+                    }
+                } else if (step > 130 && step <= 230) pullOff = 230 - step;
+                else if (step > 230) { clearInterval(anim); pulling = false; setTimeout(() => { cooldown = false; btn.innerText = "REACH"; btn.style.background = "white"; }, 400); }
+            }, 16);
+        }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new AfterglowEchoes().setVisible(true);
-        });
-    }
-}
+        function updateScore() { document.getElementById('score').innerText = "$" + score.toLocaleString(); }
 
-class GamePanel extends JPanel implements ActionListener, MouseListener, MouseMotionListener {
-    private enum State { START, PLAYING, LEGENDARY, FINISHED }
-    private State gameState = State.START;
-    
-    private Timer timer;
-    private int score = 0;
-    private int timeLeft = 60;
-    private long lastTick = 0;
-    
-    private Point mousePos = new Point(0, 0);
-    private boolean isPulling = false;
-    private int pullOffset = 0;
-    private boolean onCooldown = false;
-    
-    private final Random rand = new Random();
-    private final List<PulledItem> activeItems = new CopyOnWriteArrayList<>();
-    private PulledItem currentLegendary = null;
-    
-    // Procedural Generation Tables
-    private final String[] PREFIXES = {"Ancient", "Broken", "Holographic", "Cursed", "Radiant", "Glitched", "Neon", "Dusty", "Forgotten", "Stellar", "Rusty", "Digital", "Ghostly", "Hyper", "Shattered", "Void", "Cyber", "Ethereal"};
-    private final String[] MATERIALS = {"Quartz", "Iron", "Plasma", "Carbon", "Light", "Silicon", "Gravity", "Aether", "Nuclear", "Memory", "Onyx", "Obsidian"};
-    private final String[] OBJECTS = {"Relic", "Drive", "Shard", "Core", "Module", "Tome", "Capsule", "Fragment"};
-    private final String[] EMOJIS = {"🗿", "🏺", "💾", "💽", "💎", "✨", "🧿", "🔮", "📼", "📟", "📖", "📜", "💊", "🧪", "🧩", "☄️"};
+        function loop(ts) {
+            ctx.fillStyle = '#020205'; ctx.fillRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            stars.forEach(s => ctx.fillRect(s.x, s.y, s.s, s.s));
+            
+            if (state === 'PLAYING') {
+                if (ts - last >= 1000) { time--; last = ts; document.getElementById('timer').innerText = time + "s"; }
+                if (time <= 0) location.reload();
 
-    public GamePanel() {
-        setBackground(new Color(2, 2, 5));
-        addMouseListener(this);
-        addMouseMotionListener(this);
-        
-        timer = new Timer(16, this); // ~60 FPS animation loop
-        timer.start();
-        lastTick = System.currentTimeMillis();
-    }
-
-    private void performPull() {
-        if (gameState != State.PLAYING || onCooldown || isPulling) return;
-        
-        isPulling = true;
-        onCooldown = true;
-
-        new Thread(() -> {
-            try {
-                // Reach down animation
-                for (int i = 0; i <= 100; i += 8) {
-                    pullOffset = i;
-                    Thread.sleep(15);
-                }
-                
-                // Roll for item
-                double roll = rand.nextDouble();
-                String name = PREFIXES[rand.nextInt(PREFIXES.length)] + " " + 
-                             MATERIALS[rand.nextInt(MATERIALS.length)] + " " + 
-                             OBJECTS[rand.nextInt(OBJECTS.length)];
-                String emoji = EMOJIS[rand.nextInt(EMOJIS.length)];
-                int value = rand.nextInt(2000) + 400;
-                boolean isLegendary = roll > 0.985;
-
-                if (isLegendary) {
-                    value = 45000;
-                    currentLegendary = new PulledItem(name, emoji, value);
-                    gameState = State.LEGENDARY;
-                    Thread.sleep(3000);
-                    score += value;
-                    gameState = State.PLAYING;
-                } else {
-                    score += value;
-                    activeItems.add(new PulledItem(name, emoji, value));
-                }
-
-                // Pull back up animation
-                for (int i = 100; i >= 0; i -= 8) {
-                    pullOffset = i;
-                    Thread.sleep(15);
-                }
-                
-                isPulling = false;
-                Thread.sleep(400); // Gameplay balance delay
-                onCooldown = false;
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                ctx.fillStyle = '#0f172a'; ctx.beginPath(); ctx.ellipse(canvas.width/2, canvas.height-280, 150, 50, 0, 0, Math.PI*2); ctx.fill();
+                ctx.font = '80px Arial';
+                items.forEach((it, i) => { ctx.fillText(it.e, it.x, it.y); it.y += it.vy; it.vy -= 0.18; if(it.y < -100) items.splice(i,1); });
+                ctx.fillStyle = '#475569';
+                ctx.beginPath(); ctx.roundRect(canvas.width/2-45, canvas.height-280-450+(pullOff*4), 90, 450, 45); ctx.fill();
             }
-        }).start();
-    }
-
-    @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-        drawBackground(g2);
-
-        switch (gameState) {
-            case START -> drawStartScreen(g2);
-            case PLAYING -> drawGame(g2);
-            case LEGENDARY -> drawLegendaryScreen(g2);
-            case FINISHED -> drawEndScreen(g2);
+            requestAnimationFrame(loop);
         }
-
-        drawCursor(g2);
-    }
-
-    private void drawBackground(Graphics2D g2) {
-        // Deep Space Gradient
-        RadialGradientPaint p = new RadialGradientPaint(
-            new Point2D.Double(getWidth() * 0.3, getHeight() * 0.4),
-            (float) getWidth(),
-            new float[]{0f, 0.7f},
-            new Color[]{new Color(30, 27, 75, 120), new Color(2, 2, 5, 255)}
-        );
-        g2.setPaint(p);
-        g2.fillRect(0, 0, getWidth(), getHeight());
-
-        // Background Stars
-        g2.setColor(new Color(255, 255, 255, 60));
-        Random starRand = new Random(42);
-        for (int i = 0; i < 120; i++) {
-            int x = starRand.nextInt(getWidth());
-            int y = starRand.nextInt(getHeight());
-            int size = starRand.nextInt(3) + 1;
-            g2.fillOval(x, y, size, size);
-        }
-    }
-
-    private void drawStartScreen(Graphics2D g2) {
-        g2.setFont(new Font("Arial", Font.BOLD, 100));
-        g2.setColor(Color.WHITE);
-        drawCenteredString(g2, "AFTERGLOW", getWidth() / 2, getHeight() / 2 - 50);
-        g2.setColor(new Color(21, 94, 117));
-        drawCenteredString(g2, "ECHOES", getWidth() / 2, getHeight() / 2 + 50);
-        
-        g2.setFont(new Font("Arial", Font.PLAIN, 18));
-        g2.setColor(Color.GRAY);
-        drawCenteredString(g2, "CLICK TO BEGIN THE ARCHIVE SALVAGE", getWidth() / 2, getHeight() / 2 + 150);
-    }
-
-    private void drawGame(Graphics2D g2) {
-        // Stats Boxes
-        g2.setColor(new Color(0, 0, 0, 180));
-        g2.fillRoundRect(50, 40, 320, 90, 25, 25);
-        g2.fillRoundRect(getWidth() - 370, 40, 320, 90, 25, 25);
-        
-        g2.setFont(new Font("Monospaced", Font.BOLD, 45));
-        g2.setColor(new Color(34, 211, 238));
-        g2.drawString("$" + String.format("%,d", score), 75, 100);
-        
-        g2.setColor(timeLeft < 10 ? Color.PINK : Color.WHITE);
-        String timeStr = timeLeft + "s";
-        g2.drawString(timeStr, getWidth() - 75 - g2.getFontMetrics().stringWidth(timeStr), 100);
-
-        // Falling Items (Ascending)
-        g2.setFont(new Font("SansSerif", Font.PLAIN, 90));
-        for (PulledItem item : activeItems) {
-            g2.drawString(item.emoji, getWidth() / 2 - 45, item.y);
-            item.update();
-            if (item.y < -100) activeItems.remove(item);
-        }
-
-        // Salvage Chute (The Hole)
-        g2.setColor(new Color(15, 23, 42));
-        g2.fillOval(getWidth() / 2 - 160, getHeight() - 280, 320, 110);
-        g2.setStroke(new BasicStroke(4));
-        g2.setColor(new Color(30, 41, 59));
-        g2.drawOval(getWidth() / 2 - 160, getHeight() - 280, 320, 110);
-
-        // Mechanical Salvage Arm
-        int armY = getHeight() - 280 - 450 + (pullOffset * 4);
-        g2.setColor(new Color(71, 85, 105));
-        g2.fillRoundRect(getWidth() / 2 - 45, armY, 90, 450, 45, 45);
-        
-        // Interaction Button
-        g2.setColor(onCooldown ? new Color(30, 41, 59) : Color.WHITE);
-        g2.fillRoundRect(getWidth() / 2 - 120, getHeight() - 130, 240, 70, 35, 35);
-        g2.setColor(onCooldown ? Color.GRAY : Color.BLACK);
-        g2.setFont(new Font("Arial", Font.BOLD, 24));
-        drawCenteredString(g2, onCooldown ? "SYNCING..." : "REACH", getWidth() / 2, getHeight() - 87);
-    }
-
-    private void drawLegendaryScreen(Graphics2D g2) {
-        g2.setColor(new Color(2, 2, 5, 230));
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        
-        g2.setFont(new Font("Arial", Font.BOLD, 22));
-        g2.setColor(new Color(34, 211, 238));
-        drawCenteredString(g2, "--- LEGENDARY ARTIFACT DETECTED ---", getWidth() / 2, getHeight() / 2 - 220);
-        
-        g2.setFont(new Font("SansSerif", Font.PLAIN, 220));
-        drawCenteredString(g2, currentLegendary.emoji, getWidth() / 2, getHeight() / 2 + 50);
-        
-        g2.setFont(new Font("Arial", Font.BOLD, 45));
-        g2.setColor(Color.WHITE);
-        drawCenteredString(g2, currentLegendary.name.toUpperCase(), getWidth() / 2, getHeight() / 2 + 180);
-    }
-
-    private void drawEndScreen(Graphics2D g2) {
-        g2.setFont(new Font("Arial", Font.BOLD, 65));
-        g2.setColor(Color.WHITE);
-        drawCenteredString(g2, "SHIFT CONCLUDED", getWidth() / 2, getHeight() / 2 - 80);
-        
-        g2.setFont(new Font("Monospaced", Font.BOLD, 90));
-        g2.setColor(new Color(34, 211, 238));
-        drawCenteredString(g2, "TOTAL: $" + String.format("%,d", score), getWidth() / 2, getHeight() / 2 + 30);
-        
-        g2.setFont(new Font("Arial", Font.PLAIN, 22));
-        g2.setColor(Color.DARK_GRAY);
-        drawCenteredString(g2, "CLICK TO RE-INITIALIZE ARCHIVE", getWidth() / 2, getHeight() / 2 + 160);
-    }
-
-    private void drawCursor(Graphics2D g2) {
-        g2.setColor(new Color(34, 211, 238, 80));
-        g2.fillOval(mousePos.x - 18, mousePos.y - 18, 36, 36);
-        g2.setColor(new Color(34, 211, 238));
-        g2.fillOval(mousePos.x - 4, mousePos.y - 4, 8, 8);
-    }
-
-    private void drawCenteredString(Graphics g, String text, int x, int y) {
-        FontMetrics metrics = g.getFontMetrics(g.getFont());
-        int adv = metrics.stringWidth(text);
-        g.drawString(text, x - adv / 2, y);
-    }
-
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        long now = System.currentTimeMillis();
-        if (gameState == State.PLAYING && now - lastTick >= 1000) {
-            timeLeft--;
-            lastTick = now;
-            if (timeLeft <= 0) gameState = State.FINISHED;
-        }
-        repaint();
-    }
-
-    public void mousePressed(MouseEvent e) {
-        if (gameState == State.START) {
-            gameState = State.PLAYING;
-            score = 0;
-            timeLeft = 60;
-        } else if (gameState == State.PLAYING) {
-            performPull();
-        } else if (gameState == State.FINISHED) {
-            gameState = State.START;
-        }
-    }
-
-    public void mouseMoved(MouseEvent e) { mousePos = e.getPoint(); }
-    public void mouseDragged(MouseEvent e) { mousePos = e.getPoint(); }
-    
-    // Unused mouse events
-    public void mouseClicked(MouseEvent e) {}
-    public void mouseReleased(MouseEvent e) {}
-    public void mouseEntered(MouseEvent e) {}
-    public void mouseExited(MouseEvent e) {}
-
-    class PulledItem {
-        String name, emoji;
-        int value;
-        int y;
-        double vy = -6.5;
-
-        PulledItem(String name, String emoji, int value) {
-            this.name = name; 
-            this.emoji = emoji; 
-            this.value = value;
-            this.y = getHeight() - 280;
-        }
-
-        void update() { 
-            y += (int) vy;
-            vy -= 0.18; // Reverse gravity for floating effect
-        }
-    }
-}
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
